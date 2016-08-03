@@ -11,8 +11,10 @@ import tensorflow as tf
 import datetime
 import dateutil.tz
 import numpy as np
-
+import re
 import scipy.misc
+import matplotlib.pyplot as plt
+from random import shuffle
 
 pp = pprint.PrettyPrinter().pprint
 logger = logging.getLogger(__name__)
@@ -20,6 +22,113 @@ logger = logging.getLogger(__name__)
 def mprint(matrix, pivot=0.5):
   for array in matrix:
     print "".join("#" if i > pivot else " " for i in array)
+
+def read_aim_ascii(file_name):
+  lines = []
+  with open(file_name, "r") as ins:    
+    for l in ins:
+      if not re.match("^\s*#",l):          
+        lines.append(l)
+  return lines
+
+def load_aim_dataset(file_name, root_dir, test_percent = .25):
+  print("Reading ascii file...")
+  lines = read_aim_ascii(file_name)
+  num_line = len(lines)
+  print("Total lines = {}".format(num_line))
+  list_images = [None]*num_line
+  list_labels = [None]*num_line
+  prev_image_name = ""
+  ind = 0
+  print("Reading all images and labels...")
+  for l in lines:
+    full_image_name, status, thres, num_char, x, y, w, h, line_text = parse_line(l)
+    if full_image_name != prev_image_name:
+      full_image = scipy.misc.imread(root_dir + "/" + full_image_name)
+      prev_image_name = full_image_name
+    #~ line_image = full_image[y:y+h-1][x:x+w-1]
+    line_image = full_image
+    list_images.append(line_image)
+    list_labels.append(line_text)
+    #~ print(line_text)
+    #~ print(line_image.shape)
+    #~ plt.imshow(full_image,).set_cmap('gray')
+    #~ plt.show()       
+
+    ind = ind + 1
+    #~ if ind == 101:
+      #~ break
+    
+  #~ Remove failed data
+  del list_images[ind:]
+  del list_labels[ind:]
+  
+  if len(list_images) != len(list_labels):
+    print("Error: Loaded images and labels are NOT the same size")
+    return -1
+    
+  num_sample = len(list_images)
+  print("Loaded samples = {}".format(num_sample))
+  #~ Shuffle dataset and split into training and test sets
+  idx = [i for i in range(num_sample)]
+  shuffle(idx)
+  
+  if test_percent >= 1:
+    print("test_percent must less than 1")
+    return -1
+  
+  train_percent = 1 - test_percent
+  num_train = int(num_sample * train_percent)
+  num_test = num_sample - num_train
+  print( "Training set = {}, test set = {}".format(num_train, num_test) )
+  
+  print("Generating training and test sets...")
+  train_X = [list_images[idx[i]] for i in range(num_train)]
+  train_Y = [list_labels[idx[i]] for i in range(num_train)]
+  test_X = [list_images[idx[i]] for i in range(num_train, num_train + num_test)]
+  test_Y = [list_labels[idx[i]] for i in range(num_train, num_train + num_test)]
+  
+  print( "Training set = {}, test set = {}".format(len(train_Y), len(test_Y)) )
+  return train_X, train_Y, test_X, test_Y
+  
+
+#~ "a01-000u-00 ok 154 19 408 746 1661 89 A|MOVE|to|stop|Mr.|Gaitskell|from"
+def parse_line(txt):
+  l = txt.split(" ")
+  full_image_name = "unknown"
+  status = "unknown"
+  thres = -1
+  num_char = -1;
+  x = y = w = h = -1
+  line = "unknown"
+  ind = 0
+  for ele in l:
+    #~ print(ind)
+    if ind == 0:
+      parse_name_l = ele.split("-")
+      folder = parse_name_l[0]
+      sub_folder = parse_name_l[0] + "-" + parse_name_l[1]
+      image_name = ele + ".png"
+      full_image_name = folder + "/" + sub_folder + "/" + image_name
+    elif ind == 1:
+      status = ele
+    elif ind == 2:
+      thres = float(ele)
+    elif ind == 3:
+      num_char = int(ele)
+    elif ind == 4:
+      x = int(ele)
+    elif ind == 5:
+      y = int(ele)
+    elif ind == 6:
+      w = int(ele)
+    elif ind == 7:
+      h = int(ele)
+    elif ind == 8:
+      line = ele    
+    ind = ind + 1
+  #~ print(full_image_name + " line = " + line)
+  return full_image_name, status, thres, num_char, x, y, w, h, line
 
 def show_all_variables():
   total_count = 0
