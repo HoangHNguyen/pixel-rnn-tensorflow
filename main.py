@@ -83,7 +83,10 @@ def main(_):
         data_dir=os.path.join(DATA_DIR, 'cifar-10-batches-bin'), batch_size=conf.batch_size)
 
     height, width, channel = IMAGE_SIZE, IMAGE_SIZE, 3
-
+  elif conf.data == "iam":
+    train_X, train_Y, test_X, test_Y = utils.load_aim_dataset('/home/admin123/workspace/pixel_rnn_tf/data/aim/lines.txt', '/home/admin123/workspace/pixel_rnn_tf/data/aim/')
+    next_train_batch
+    
   with tf.Session() as sess:
     network = Network(sess, conf, height, width, channel)
 
@@ -100,8 +103,12 @@ def main(_):
         # 1. train
         total_train_costs = []
         for idx in xrange(train_step_per_epoch):
-          images = binarize(next_train_batch(conf.batch_size)) \
-            .reshape([conf.batch_size, height, width, channel])
+          if conf.data == "mnist":
+            images = binarize(next_train_batch(conf.batch_size)) \
+              .reshape([conf.batch_size, height, width, channel])
+          else:
+            #~ TODO
+            images = []
 
           cost = network.test(images, with_update=True)
           total_train_costs.append(cost)
